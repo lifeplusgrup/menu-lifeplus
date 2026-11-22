@@ -90,7 +90,7 @@
       <button class="btn" id="prev" aria-label="Halaman sebelumnya">
         <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
       </button>
-      <div class="count" id="count" aria-live="polite">1 <small>/ 26</small></div>
+      <div class="count" id="count" aria-live="polite">1 <small>/ 25</small></div>
       <button class="btn" id="next" aria-label="Halaman berikutnya">
         <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
       </button>
@@ -119,14 +119,16 @@
 <script src="lib/page-flip.browser.js"></script>
 <script>
 (function () {
-  var TOTAL = 26;
+  var TOTAL = 25;
+  // Naikkan angka ini setiap kali gambar di folder images diganti, supaya browser tidak memakai gambar lama.
+  var VERSION = 2;
   // Ubah judul/nomor halaman di sini kalau urutan menu berubah.
   var SECTIONS = [
     ["Sampul", 1], ["Tentang Life+", 2], ["Appetizer", 4], ["Bites", 6], ["Salad", 7],
     ["Main Course", 9], ["Pasta & Noodle", 11], ["Steak", 12], ["Beverages", 14],
     ["Signature Coffee", 15], ["Classic & Filter Coffee", 16], ["Matcha", 17],
-    ["Chocolate", 18], ["Refreshment", 19], ["Smoothies", 20], ["Tea", 21],
-    ["Seasonal", 22], ["Other", 23], ["Artisan Tea", 24], ["Dessert", 25]
+    ["Chocolate", 18], ["Refreshment", 19], ["Smoothies", 20], ["Seasonal & Other", 21],
+    ["Tea", 22], ["Artisan Tea", 23], ["Dessert", 24]
   ];
 
   var book = document.getElementById('book');
@@ -138,7 +140,7 @@
     d.className = 'page';
     if (i === 1 || i === TOTAL) d.setAttribute('data-density', 'hard');
     var img = document.createElement('img');
-    img.src = 'images/p' + (i < 10 ? '0' + i : i) + '.webp';
+    img.src = 'images/p' + (i < 10 ? '0' + i : i) + '.webp?v=' + VERSION;
     img.alt = 'Halaman menu ' + i + ' dari ' + TOTAL;
     img.draggable = false;
     d.appendChild(img);
@@ -177,7 +179,7 @@
     else label = '' + a;
     count.innerHTML = label + ' <small>/ ' + TOTAL + '</small>';
     prev.disabled = idx <= 0;
-    next.disabled = idx >= TOTAL - 1;
+    next.disabled = landscape ? (idx + (idx > 0 ? 2 : 1) >= TOTAL) : idx >= TOTAL - 1;
     markToc(idx);
   }
 
