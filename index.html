@@ -19,7 +19,7 @@
     --safe-b: env(safe-area-inset-bottom, 0px);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--cream);
+  html, body { height: 100%; margin: 0; background: radial-gradient(120% 90% at 50% 38%, #35312f 0%, #211f1e 58%, #151414 100%) fixed; color: var(--cream);
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; overflow: hidden; }
 
   #app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
@@ -65,6 +65,26 @@
   #toc .pg { color: var(--orange); font-weight: 700; font-variant-numeric: tabular-nums; }
   #toc button.here .pg { color: #fff; }
   @media (max-width: 420px) { #toc { grid-template-columns: 1fr; } }
+
+  /* efek buku: lipatan tengah, tumpukan kertas, bayangan di bawah buku */
+  .fx { position: absolute; pointer-events: none; }
+  .fx-under { position: absolute; top: 0; bottom: 0; z-index: -1; }
+  .fx[data-mode="both"]  .fx-under { left: 0; right: 0;
+    box-shadow: -1.5px 0 0 #d4cec4, -3px 0 0 #7d7872, 1.5px 0 0 #d4cec4, 3px 0 0 #7d7872,
+                0 26px 46px rgba(0,0,0,.6), 0 6px 14px rgba(0,0,0,.4); }
+  .fx[data-mode="right"] .fx-under { left: 50%; right: 0;
+    box-shadow: 1.5px 0 0 #d4cec4, 3px 0 0 #7d7872, 0 26px 46px rgba(0,0,0,.6), 0 6px 14px rgba(0,0,0,.4); }
+  .fx[data-mode="left"]  .fx-under { left: 0; right: 50%;
+    box-shadow: -1.5px 0 0 #d4cec4, -3px 0 0 #7d7872, 0 26px 46px rgba(0,0,0,.6), 0 6px 14px rgba(0,0,0,.4); }
+  .fx-sp { position: absolute; top: 0; bottom: 0; z-index: 20; transition: opacity .2s; }
+  .fx-l { right: 50%; background: linear-gradient(to left, rgba(0,0,0,.52) 0%, rgba(0,0,0,.24) 32%, rgba(0,0,0,.07) 70%, rgba(0,0,0,0) 100%); }
+  .fx-r { left: 50%;  background: linear-gradient(to right, rgba(0,0,0,.52) 0%, rgba(0,0,0,.24) 32%, rgba(0,0,0,.07) 70%, rgba(0,0,0,0) 100%); }
+  .fx[data-mode="right"] .fx-l, .fx[data-mode="left"] .fx-r { display: none; }
+  .fx-r::before, .fx-r::after { content: ""; position: absolute; top: 0; bottom: 0; width: 1px; display: none; }
+  .fx-r::before { left: 0; background: rgba(0,0,0,.5); }
+  .fx-r::after  { left: 1px; background: rgba(255,255,255,.11); }
+  .fx[data-mode="both"] .fx-r::before, .fx[data-mode="both"] .fx-r::after { display: block; }
+  .fx.hide .fx-sp { opacity: 0; }
 
   /* first-open hint */
   #hint { position: fixed; left: 50%; bottom: calc(86px + var(--safe-b)); transform: translateX(-50%);
@@ -165,6 +185,26 @@
   book.style.minWidth = '0'; book.style.minHeight = '0';
   flip.update();
 
+  // efek buku (lipatan tengah dsb.)
+  var fx = document.createElement('div');
+  fx.className = 'fx';
+  fx.innerHTML = '<div class="fx-under"></div><div class="fx-sp fx-l"></div><div class="fx-sp fx-r"></div>';
+  book.appendChild(fx);
+  var fxL = fx.querySelector('.fx-l'), fxR = fx.querySelector('.fx-r');
+
+  function layoutFx() {
+    var r = flip.getBoundsRect();
+    if (!r) return;
+    var idx = flip.getCurrentPageIndex();
+    var land = flip.getOrientation() === 'landscape';
+    var mode = (!land || idx === 0) ? 'right' : (idx >= TOTAL - 1 ? 'left' : 'both');
+    fx.style.left = r.left + 'px'; fx.style.top = r.top + 'px';
+    fx.style.width = r.width + 'px'; fx.style.height = r.height + 'px';
+    fx.setAttribute('data-mode', mode);
+    var w = Math.max(14, r.pageWidth * 0.09) + 'px';
+    fxL.style.width = w; fxR.style.width = w;
+  }
+
   var prev = document.getElementById('prev'),
       next = document.getElementById('next'),
       count = document.getElementById('count'),
@@ -181,6 +221,7 @@
     prev.disabled = idx <= 0;
     next.disabled = landscape ? (idx + (idx > 0 ? 2 : 1) >= TOTAL) : idx >= TOTAL - 1;
     markToc(idx);
+    layoutFx();
   }
 
   var hintShown = false;
@@ -194,6 +235,10 @@
   });
   flip.on('flip', function () { render(); hint.classList.remove('show'); });
   flip.on('changeOrientation', render);
+  flip.on('changeState', function (e) {
+    fx.classList.toggle('hide', e.data === 'flipping' || e.data === 'user_fold');
+  });
+  window.addEventListener('resize', function () { requestAnimationFrame(layoutFx); });
 
   prev.addEventListener('click', function () { flip.flipPrev(); });
   next.addEventListener('click', function () { flip.flipNext(); });
