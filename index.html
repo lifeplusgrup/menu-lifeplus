@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Menu Life+</title>
+<meta name="description" content="Menu digital Life+ — makanan, kopi, dan minuman.">
+<meta name="theme-color" content="#1b1a1a">
+<meta property="og:title" content="Menu Life+">
+<meta property="og:image" content="images/p01.webp">
+<style>
+  :root {
+    --bg: #1b1a1a;
+    --panel: #262626;
+    --line: #3b3837;
+    --cream: #ece8e1;
+    --muted: #9b9591;
+    --orange: #cb5a2c;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--cream);
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; overflow: hidden; }
+
+  #app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
+  #stage { flex: 1; min-height: 0; padding: 14px 10px 6px; }
+  #book { width: 100%; height: 100%; }
+
+  .page { background: var(--panel); overflow: hidden; }
+  .page img { display: block; width: 100%; height: 100%; object-fit: fill;
+    user-select: none; -webkit-user-drag: none; pointer-events: none; }
+
+  /* control bar */
+  #bar { display: flex; justify-content: center; padding: 8px 10px calc(12px + var(--safe-b)); }
+  .pill { display: flex; align-items: center; gap: 2px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px; }
+  .btn { width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent;
+    color: var(--cream); display: grid; place-items: center; cursor: pointer; }
+  .btn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2;
+    stroke-linecap: round; stroke-linejoin: round; }
+  .btn:hover { background: #343130; }
+  .btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 1px; }
+  .btn[disabled] { opacity: .3; cursor: default; background: transparent; }
+  .count { min-width: 84px; text-align: center; font-size: 15px; font-weight: 700;
+    font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+  .count small { font-weight: 400; color: var(--muted); }
+  .sep { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+
+  /* section sheet */
+  #sheet { position: fixed; inset: 0; z-index: 20; display: none; }
+  #sheet.open { display: block; }
+  #scrim { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+  #panel { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+    width: min(560px, 100%); max-height: 78dvh; overflow: auto; background: var(--panel);
+    border: 1px solid var(--line); border-bottom: 0; border-radius: 20px 20px 0 0;
+    padding: 18px 18px calc(18px + var(--safe-b)); }
+  #panel h2 { margin: 2px 4px 12px; font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
+  #toc { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  #toc button { width: 100%; display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+    padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: transparent;
+    color: var(--cream); font: inherit; font-size: 15px; text-align: left; cursor: pointer; }
+  #toc button:hover { border-color: var(--orange); }
+  #toc button:focus-visible { outline: 2px solid var(--orange); outline-offset: 1px; }
+  #toc button.here { background: var(--orange); border-color: var(--orange); color: #fff; }
+  #toc .pg { color: var(--orange); font-weight: 700; font-variant-numeric: tabular-nums; }
+  #toc button.here .pg { color: #fff; }
+  @media (max-width: 420px) { #toc { grid-template-columns: 1fr; } }
+
+  /* first-open hint */
+  #hint { position: fixed; left: 50%; bottom: calc(86px + var(--safe-b)); transform: translateX(-50%);
+    background: var(--orange); color: #fff; font-size: 14px; font-weight: 700; padding: 10px 16px;
+    border-radius: 999px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .4s; }
+  #hint.show { opacity: 1; }
+
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg);
+    color: var(--muted); font-size: 14px; z-index: 30; transition: opacity .3s; }
+  #loading.done { opacity: 0; pointer-events: none; }
+
+  @media (prefers-reduced-motion: reduce) { #hint, #loading { transition: none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <main id="stage" aria-label="Menu Life+">
+    <div id="book"></div>
+  </main>
+
+  <nav id="bar" aria-label="Navigasi menu">
+    <div class="pill">
+      <button class="btn" id="prev" aria-label="Halaman sebelumnya">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="count" id="count" aria-live="polite">1 <small>/ 26</small></div>
+      <button class="btn" id="next" aria-label="Halaman berikutnya">
+        <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+      <span class="sep"></span>
+      <button class="btn" id="open-toc" aria-label="Daftar kategori menu" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      </button>
+      <button class="btn" id="fs" aria-label="Layar penuh">
+        <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      </button>
+    </div>
+  </nav>
+</div>
+
+<div id="sheet" role="dialog" aria-modal="true" aria-labelledby="toc-title">
+  <div id="scrim"></div>
+  <div id="panel">
+    <h2 id="toc-title">Kategori menu</h2>
+    <ul id="toc"></ul>
+  </div>
+</div>
+
+<div id="hint">Geser atau ketuk tepi halaman</div>
+<div id="loading">Memuat menu…</div>
+
+<script src="lib/page-flip.browser.js"></script>
+<script>
+(function () {
+  var TOTAL = 26;
+  // Ubah judul/nomor halaman di sini kalau urutan menu berubah.
+  var SECTIONS = [
+    ["Sampul", 1], ["Tentang Life+", 2], ["Appetizer", 4], ["Bites", 6], ["Salad", 7],
+    ["Main Course", 9], ["Pasta & Noodle", 11], ["Steak", 12], ["Beverages", 14],
+    ["Signature Coffee", 15], ["Classic & Filter Coffee", 16], ["Matcha", 17],
+    ["Chocolate", 18], ["Refreshment", 19], ["Smoothies", 20], ["Tea", 21],
+    ["Seasonal", 22], ["Other", 23], ["Artisan Tea", 24], ["Dessert", 25]
+  ];
+
+  var book = document.getElementById('book');
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // build pages
+  for (var i = 1; i <= TOTAL; i++) {
+    var d = document.createElement('div');
+    d.className = 'page';
+    if (i === 1 || i === TOTAL) d.setAttribute('data-density', 'hard');
+    var img = document.createElement('img');
+    img.src = 'images/p' + (i < 10 ? '0' + i : i) + '.webp';
+    img.alt = 'Halaman menu ' + i + ' dari ' + TOTAL;
+    img.draggable = false;
+    d.appendChild(img);
+    book.appendChild(d);
+  }
+
+  var flip = new St.PageFlip(book, {
+    width: 1075, height: 1521,
+    size: 'stretch',
+    minWidth: 400, maxWidth: 1075, minHeight: 300, maxHeight: 1521,
+    autoSize: false,            // tinggi mengikuti layar, bukan lebar
+    showCover: true,
+    usePortrait: true,          // 1 halaman di layar sempit, 2 halaman di layar lebar
+    mobileScrollSupport: false,
+    maxShadowOpacity: 0.45,
+    flippingTime: reduce ? 150 : 750,
+    swipeDistance: 25,
+    startPage: 0
+  });
+  flip.loadFromHTML(document.querySelectorAll('.page'));
+  // library memasang min-width inline saat load; lepas supaya tidak melebar di HP kecil
+  book.style.minWidth = '0'; book.style.minHeight = '0';
+  flip.update();
+
+  var prev = document.getElementById('prev'),
+      next = document.getElementById('next'),
+      count = document.getElementById('count'),
+      hint = document.getElementById('hint'),
+      loading = document.getElementById('loading');
+
+  function render() {
+    var idx = flip.getCurrentPageIndex();
+    var landscape = flip.getOrientation() === 'landscape';
+    var a = idx + 1, label;
+    if (landscape && idx > 0 && idx < TOTAL - 1) label = a + '–' + (a + 1);
+    else label = '' + a;
+    count.innerHTML = label + ' <small>/ ' + TOTAL + '</small>';
+    prev.disabled = idx <= 0;
+    next.disabled = idx >= TOTAL - 1;
+    markToc(idx);
+  }
+
+  var hintShown = false;
+  flip.on('init', function () {
+    render();
+    loading.classList.add('done');
+    setTimeout(function () {
+      hint.classList.add('show'); hintShown = true;
+      setTimeout(function () { hint.classList.remove('show'); }, 3600);
+    }, 500);
+  });
+  flip.on('flip', function () { render(); hint.classList.remove('show'); });
+  flip.on('changeOrientation', render);
+
+  prev.addEventListener('click', function () { flip.flipPrev(); });
+  next.addEventListener('click', function () { flip.flipNext(); });
+  document.addEventListener('keydown', function (e) {
+    if (sheet.classList.contains('open')) { if (e.key === 'Escape') closeToc(); return; }
+    if (e.key === 'ArrowRight') flip.flipNext();
+    else if (e.key === 'ArrowLeft') flip.flipPrev();
+  });
+
+  // table of contents
+  var sheet = document.getElementById('sheet'),
+      toc = document.getElementById('toc'),
+      openBtn = document.getElementById('open-toc');
+
+  SECTIONS.forEach(function (s) {
+    var li = document.createElement('li'), b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('data-page', s[1]);
+    b.innerHTML = '<span></span><span class="pg">' + s[1] + '</span>';
+    b.firstChild.textContent = s[0];
+    b.addEventListener('click', function () {
+      closeToc();
+      var target = s[1] - 1;
+      if (target === flip.getCurrentPageIndex()) return;
+      setTimeout(function () { flip.flip(target); }, 120);
+    });
+    li.appendChild(b); toc.appendChild(li);
+  });
+
+  function markToc(idx) {
+    var page = idx + 1, best = null;
+    SECTIONS.forEach(function (s) { if (s[1] <= page + (flip.getOrientation() === 'landscape' && idx > 0 && idx < TOTAL - 1 ? 1 : 0)) best = s[1]; });
+    Array.prototype.forEach.call(toc.querySelectorAll('button'), function (b) {
+      b.classList.toggle('here', +b.getAttribute('data-page') === best);
+    });
+  }
+
+  function openToc() { sheet.classList.add('open'); var h = toc.querySelector('.here') || toc.querySelector('button'); h && h.focus(); }
+  function closeToc() { sheet.classList.remove('open'); openBtn.focus(); }
+  openBtn.addEventListener('click', openToc);
+  document.getElementById('scrim').addEventListener('click', closeToc);
+
+  // fullscreen (tidak tersedia di iPhone Safari → tombol disembunyikan)
+  var fs = document.getElementById('fs'), root = document.documentElement;
+  var canFs = root.requestFullscreen || root.webkitRequestFullscreen;
+  if (!canFs) fs.style.display = 'none';
+  fs.addEventListener('click', function () {
+    var inFs = document.fullscreenElement || document.webkitFullscreenElement;
+    if (inFs) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else (root.requestFullscreen || root.webkitRequestFullscreen).call(root);
+  });
+
+  window.addEventListener('orientationchange', function () { setTimeout(function () { flip.update(); }, 250); });
+})();
+</script>
+</body>
+</html>
